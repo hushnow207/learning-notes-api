@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>我的博客</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 40px auto; }
+        .article { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .article h3 { margin: 0 0 8px; }
+        button { padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>我的博客</h1>
+    <button onclick="loadArticles()">刷新文章列表</button>
+    <div id="articleList"></div>
+
+    <script>
+    function loadArticles() {
+        fetch('http://127.0.0.1:8000/articles')
+            .then(res => res.json())
+            .then(data => {
+                let html = '';
+                data.articles.forEach(a => {
+                    html += `<div class="article">
+                        <h3>${a.title}</h3>
+                        <p>${a.content}</p>
+                        <small>id: ${a.id}</small>
+                    </div>`;
+                });
+                document.getElementById('articleList').innerHTML = html;
+            });
+    }
+    // 页面打开时自动加载一次
+    loadArticles();
+    </script>
+</body>
+</html>
