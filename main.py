@@ -1,8 +1,9 @@
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Text
+from datetime import datetime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -19,6 +20,8 @@ class DBArticle(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(100))
     content = Column(Text)
+    category = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.now, nullable=True)
 
 # 自动建表
 Base.metadata.create_all(bind=engine)
@@ -38,6 +41,7 @@ app.add_middleware(
 class Article(BaseModel):
     title: str
     content: str
+    category:str=""
 
 @app.get("/")
 def home():
@@ -66,7 +70,7 @@ class DBUser(Base):
 @app.post("/articles")
 def create_article(article: Article):
     db = SessionLocal()
-    db_article = DBArticle(title=article.title, content=article.content)
+    db_article = DBArticle(title=article.title, content=article.content, category=article.category)
     db.add(db_article)
     db.commit()
     db.refresh(db_article)
@@ -78,6 +82,10 @@ def create_article(article: Article):
 def delete_article(article_id: int):
     db = SessionLocal()
     db_article = db.query(DBArticle).filter(DBArticle.id == article_id).first()
+    if db_article is None:
+        db.close()
+        raise HTTPException(status_code=404, detail="文章不存在")
+
     db.delete(db_article)
     db.commit()
     db.close()
@@ -103,8 +111,12 @@ def register(user: User):
 def update_article(article_id: int, article: Article):
     db = SessionLocal()
     db_article = db.query(DBArticle).filter(DBArticle.id == article_id).first()
+    if db_article is None:
+        db.close()
+        raise HTTPException(status_code=404, detail="文章不存在")
     db_article.title = article.title
     db_article.content = article.content
+    db_article.category = article.category
     db.commit()
     db.close()
     return {"message": "文章修改成功"}
