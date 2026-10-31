@@ -120,3 +120,13 @@ def update_article(article_id: int, article: Article):
     db.commit()
     db.close()
     return {"message": "文章修改成功"}
+
+@app.get("/articles/{article_id}")
+def get_article(article_id: int):
+    db=SessionLocal()
+    db_article=db.query(DBArticle).filter(DBArticle.id==article_id).first()
+    if db_article is None:
+        db.close()
+        raise HTTPException(status_code=404,detail=" 文章不存在")
+    db.close()
+    return{"message":db_article}
