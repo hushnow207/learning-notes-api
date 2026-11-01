@@ -1,4 +1,5 @@
 import os
+import bcrypt
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -59,12 +60,39 @@ def get_articles():
     db.close()
     return {"articles": articles}
 
-#用户表
+#用户表(数据库)
 class DBUser(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True)
     password = Column(String(200))
+
+#用户注册（接口接收的数据格式）
+class User(BaseModel):
+    username: str
+    password: str
+
+@app.post("/users")
+def register(user: User):
+    password=user.password.encode("utf-8")
+    hashed_password=bcrypt.hashpw(
+        password,
+        bcrypt.gensalt()
+    )
+    db = SessionLocal()
+    existing_user=db.query(DBUser).filter(
+        DBUser.username==user.username
+        ).first()
+    if existing_user is not None:
+        db.close()
+        raise HTTPException(
+            status_code=400,detail="该用户名已注册！"
+            )
+    db_user = DBUser(username=user.username, password=hashed_password.decode("utf-8"))
+    db.add(db_user)
+    db.commit()
+    db.close()
+    return {"message": "注册成功"}
 
 # 往数据库加文章
 @app.post("/articles")
@@ -90,21 +118,6 @@ def delete_article(article_id: int):
     db.commit()
     db.close()
     return {"message": "文章删除成功"}
-
-#用户注册
-class User(BaseModel):
-    username: str
-    password: str
-
-@app.post("/users")
-def register(user: User):
-    db = SessionLocal()
-    db_user = DBUser(username=user.username, password=user.password)
-    db.add(db_user)
-    db.commit()
-    db.close()
-    return {"message": "注册成功"}
-
 
 # 编辑文章标题和内容
 @app.put("/articles/{article_id}")
