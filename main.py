@@ -94,6 +94,28 @@ def register(user: User):
     db.close()
     return {"message": "注册成功"}
 
+@app.post("/login")
+def login(user:User):
+    db = SessionLocal()
+    existing_user = db.query(DBUser).filter(
+        DBUser.username == user.username
+        ).first()
+    if existing_user is  None:
+        db.close()
+        raise HTTPException(
+            status_code=401,detail="该用户不存在！请重新输入~"
+        )
+    password1=user.password.encode("utf-8")
+    password2=existing_user.password.encode("utf-8")
+    lemp=bcrypt.checkpw(password1,password2)
+    if not lemp:
+        db.close()
+        raise HTTPException(
+              status_code=401,detail="用户名或密码错误！请重新输入"
+        )
+    db.close()
+    return{"message":"登录成功"}
+
 # 往数据库加文章
 @app.post("/articles")
 def create_article(article: Article):
