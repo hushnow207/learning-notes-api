@@ -1,7 +1,10 @@
 import os
 import bcrypt
+from jose import jwt,JWTError
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException,Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -10,6 +13,9 @@ from sqlalchemy.orm import sessionmaker
 
 # 连接数据库
 load_dotenv()
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+ALGORITHM = "HS256"
+security = HTTPBearer(auto_error=False)
 SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -29,6 +35,39 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+
+
+def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="请先登录"
+        )
+
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="无效或已过期的 token"
+        )
+
+    username = payload.get("sub")
+
+    if username is None:
+        raise HTTPException(
+            status_code=401,
+            detail="token 中没有用户信息"
+        )
+
+    return username
+
 # 允许跨域（让 HTML 页面能请求后端）
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
@@ -47,6 +86,10 @@ class Article(BaseModel):
 @app.get("/")
 def home():
     return {"message": "你好，这是我的第一个接口！"}
+
+@app.get("/me")
+def read_me(current_user: str = Depends(get_current_user)):
+    return {"username": current_user}
 
 @app.get("/hello/{name}")
 def hello(name: str):
@@ -114,11 +157,24 @@ def login(user:User):
               status_code=401,detail="用户名或密码错误！请重新输入"
         )
     db.close()
-    return{"message":"登录成功"}
+    expire_time = datetime.now(timezone.utc) + timedelta(minutes=30)
+    payload={
+        "sub":user.username,
+        "exp":expire_time
+    }
+    access_token=jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    return {
+    "access_token": access_token,
+    "token_type": "bearer"
+    }
 
 # 往数据库加文章
 @app.post("/articles")
-def create_article(article: Article):
+def create_article(article: Article,current_user:str=Depends(get_current_user)):
     db = SessionLocal()
     db_article = DBArticle(title=article.title, content=article.content, category=article.category)
     db.add(db_article)
@@ -129,7 +185,7 @@ def create_article(article: Article):
 
 # 删除文章
 @app.delete("/articles/{article_id}")
-def delete_article(article_id: int):
+def delete_article(article_id: int,current_user:str=Depends(get_current_user)):
     db = SessionLocal()
     db_article = db.query(DBArticle).filter(DBArticle.id == article_id).first()
     if db_article is None:
@@ -143,7 +199,7 @@ def delete_article(article_id: int):
 
 # 编辑文章标题和内容
 @app.put("/articles/{article_id}")
-def update_article(article_id: int, article: Article):
+def update_article(article_id: int, article: Article,current_user:str=Depends(get_current_user)):
     db = SessionLocal()
     db_article = db.query(DBArticle).filter(DBArticle.id == article_id).first()
     if db_article is None:
@@ -157,7 +213,7 @@ def update_article(article_id: int, article: Article):
     return {"message": "文章修改成功"}
 
 @app.get("/articles/{article_id}")
-def get_article(article_id: int):
+def get_article(article_id: int,current_user:str=Depends(get_current_user)):
     db=SessionLocal()
     db_article=db.query(DBArticle).filter(DBArticle.id==article_id).first()
     if db_article is None:
