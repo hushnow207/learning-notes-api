@@ -1,0 +1,21 @@
+#"""
+#当前 main.py 的导入，项目直接用到这些第三方库：
+#- fastapi
+#- uvicorn:启动 FastAPI 服务，虽然没在代码里 import:运行项目仍需要它
+#- python-dotenv:读取 .env
+#- SQLAlchemy:操作数据库
+#- bcrypt:密码哈希和验证
+#- python-jose[cryptography]：生成和验证 JWT
+#- pydantic:定义请求数据模型
+#- MySQL 驱动:SQLAlchemy 连接 MySQL 时需要
+#os、`datetime` 是 Python 自带模块，不用写进依赖清单。
+#python -m pip install -r requirements.txt
+#"""
+fastapi
+uvicorn
+python-dotenv
+SQLAlchemy
+bcrypt
+python-jose[cryptography]
+pydantic
+PyMySQL
