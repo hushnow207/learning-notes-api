@@ -3,7 +3,7 @@ import bcrypt
 from jose import jwt,JWTError
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException,Depends
+from fastapi import FastAPI, HTTPException,Depends,Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from datetime import datetime
@@ -221,3 +221,12 @@ def get_article(article_id: int,current_user:str=Depends(get_current_user)):
         raise HTTPException(status_code=404,detail=" 文章不存在")
     db.close()
     return{"message":db_article}
+
+@app.get("/articles_page")
+def get_page_article(page_size: int = Query(default=2, ge=1, le=100),page: int = Query(default=1, ge=1),current_user:str=Depends(get_current_user)):
+    begin = (page - 1) * page_size
+    db=SessionLocal()
+    page_articles=db.query(DBArticle).order_by(DBArticle.id.asc()).offset(begin).limit(page_size).all()
+    total = db.query(DBArticle).count()
+    db.close()
+    return {"page_articles" : page_articles,"total":total}
